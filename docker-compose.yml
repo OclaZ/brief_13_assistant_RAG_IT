@@ -1,0 +1,17 @@
+
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: postgres_rag_db
+    restart: always
+    env_file:
+      - .env
+    ports:
+      # Cela va mapper le port 5433 de ton PC vers le 5432 de Docker
+      - "${POSTGRES_PORT}:5432" 
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

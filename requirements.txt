@@ -1,0 +1,16 @@
+sqlalchemy
+psycopg2-binary
+pydantic
+passlib[bcrypt]
+bcrypt==3.2.2
+python-jose[cryptography]
+fastapi
+uvicorn
+langchain                                
+langchain-chroma                        
+langchain-classic                       
+langchain-community                      
+langchain-core                          
+langchain-google-genai                  
+langchain-huggingface                   
+langchain-text-splitters
