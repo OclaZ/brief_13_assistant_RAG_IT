@@ -1,0 +1,80 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    env:
+      # Secrets must be configured in GitHub Repo Settings > Secrets and variables
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: rag_db_test
+      SECRET_KEY: supersecretkeyfortesting
+
+    services:
+      # We launch a temporary Postgres service for the tests
+      db:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: rag_db_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        # Only if you want to push the image later
+        # Create secrets DOCKER_USERNAME and DOCKER_PASSWORD in GitHub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true # Charge l'image dans le daemon Docker local pour l'utiliser
+          tags: rag-api:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Tests inside Container
+        # We run the tests INSIDE the container to guarantee the environment
+        run: |
+          docker run --rm \
+            --network host \
+            -e DATABASE_URL=postgresql://user:password@localhost:5432/rag_db_test \
+            -e GOOGLE_API_KEY=$GOOGLE_API_KEY \
+            -e SECRET_KEY=$SECRET_KEY \
+            rag-api:test \
+            pytest app/tests/
+
+      - name: Push Docker Image
+        # Push only if tests passed and it's a push to main
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/rag-support-it:latest

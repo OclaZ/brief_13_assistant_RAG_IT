@@ -23,19 +23,21 @@ def ask_rag(request: QueryRequest ,  payload: dict = Depends(verify_token),
     """
     try:
         response_text, elapsed_time, num_vectors = query_rag(request.question)
+
+        latency = round(elapsed_time * 1000, 2)
         
         # Enregistrer dans l'historique
         history_entry = AnswersHistory(
             user_id=current_user.id,
             answer=response_text,
             question=request.question,
-            latency_ms=round(elapsed_time * 1000, 2),
+            latency_ms=latency,
             cluster=num_vectors
         )
         db.add(history_entry)
         db.commit()
     
-        return QueryResponse(answer=response_text)
+        return QueryResponse(answer=response_text , latency_ms=latency, cluster=num_vectors)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     

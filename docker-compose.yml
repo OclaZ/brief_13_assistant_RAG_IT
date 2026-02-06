@@ -1,5 +1,4 @@
 
-
 services:
   db:
     image: postgres:15-alpine
@@ -8,10 +7,37 @@ services:
     env_file:
       - .env
     ports:
-      # Cela va mapper le port 5433 de ton PC vers le 5432 de Docker
-      - "${POSTGRES_PORT}:5432" 
+      # Mappe le port défini dans .env (ex: 5433) vers le 5432 du conteneur
+      - "${POSTGRES_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.14.1
+    container_name: rag_mlflow
+    ports:
+      - "5000:5000"
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow.db --default-artifact-root /mlartifacts
+    volumes:
+      - ./mlflow_data:/mlflow
+      - shared_artifacts:/mlartifacts
+  api:
+    build: .
+    container_name: rag_api
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_SERVER=db
+      - POSTGRES_PORT=5432
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+        MLFLOW_TRACKING_URI=http://mlflow:5000
+      - MLFLOW_EXPERIMENT_NAME=RAG_Support_IT_v3
+    volumes:
+      - .:/app
 
 volumes:
   postgres_data:
+  shared_artifacts:
